@@ -164,3 +164,4 @@ cython_debug/
 
 # Dataset
 dataset_to_release
+data
