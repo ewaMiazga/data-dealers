@@ -2,7 +2,7 @@ import numpy as np
 from collections import Counter
 
 ################### DROP FEATURES FUNCTION ###################
-def drop_features(headers, data, constant_threshold=0.9, missing_threshold=0.9, correlation_threshold=0.95): 
+def drop_features(headers, data, constant_threshold=0.9, missing_threshold=0.9, correlation_threshold=0.9): 
     # Step 1: Identify columns to keep based on missing values and low variability
     columns_to_keep = []
 
