@@ -4,23 +4,24 @@ import csv
 import numpy as np
 import os
 
-
 def load_csv_data(data_path, sub_sample=False):
     """
-    This function loads the data and returns the respectinve numpy arrays.
-    Remember to put the 3 files in the same folder and to not change the names of the files.
+    This function loads the data and returns the corresponding numpy arrays,
+    as well as the column headers (features).
 
     Args:
-        data_path (str): datafolder path
-        sub_sample (bool, optional): If True the data will be subsempled. Default to False.
+        data_path (str): Path to the data folder
+        sub_sample (bool, optional): If True, the data will be subsampled. Defaults to False.
 
     Returns:
-        x_train (np.array): training data
-        x_test (np.array): test data
-        y_train (np.array): labels for training data in format (-1,1)
-        train_ids (np.array): ids of training data
-        test_ids (np.array): ids of test data
+        headers (list): List of column names for the features
+        x_train (np.array): Training data
+        x_test (np.array): Test data
+        y_train (np.array): Labels for training data (-1, 1)
+        train_ids (np.array): IDs for training data
+        test_ids (np.array): IDs for test data
     """
+    # Load y_train
     y_train = np.genfromtxt(
         os.path.join(data_path, "y_train.csv"),
         delimiter=",",
@@ -28,6 +29,11 @@ def load_csv_data(data_path, sub_sample=False):
         dtype=int,
         usecols=1,
     )
+
+    # Load x_train and x_test with headers
+    with open(os.path.join(data_path, "x_train.csv"), 'r') as f:
+        headers = f.readline().strip().split(',')
+
     x_train = np.genfromtxt(
         os.path.join(data_path, "x_train.csv"), delimiter=",", skip_header=1
     )
@@ -35,19 +41,24 @@ def load_csv_data(data_path, sub_sample=False):
         os.path.join(data_path, "x_test.csv"), delimiter=",", skip_header=1
     )
 
+    # Separate the IDs (column 0)
     train_ids = x_train[:, 0].astype(dtype=int)
     test_ids = x_test[:, 0].astype(dtype=int)
+
+    # Remove the ID column from x_train and x_test
     x_train = x_train[:, 1:]
     x_test = x_test[:, 1:]
 
-    # sub-sample
+    # Sub-sampling
     if sub_sample:
         y_train = y_train[::50]
         x_train = x_train[::50]
         train_ids = train_ids[::50]
 
-    return x_train, x_test, y_train, train_ids, test_ids
+    # Remove the ID from the headers
+    headers = headers[1:]
 
+    return headers, x_train, x_test, y_train, train_ids, test_ids
 
 def create_csv_submission(ids, y_pred, name):
     """

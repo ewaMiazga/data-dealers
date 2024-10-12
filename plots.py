@@ -3,7 +3,43 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from grid_search import get_best_parameters
+import seaborn as sns
+import pandas as pd
 
+# Visualize filtered data with correlation to target
+def visualize_filtered_data(headers, data, y):
+    """
+    Visualize the dataset after dropping columns.
+
+    Args:
+        headers (list): List of feature names.
+        data (np.array): The filtered dataset (x_train_filtered).
+        y (np.array): The target variable.
+    """
+    # Convert data to a DataFrame for easier manipulation and visualization
+    df = pd.DataFrame(data, columns=headers)
+
+    # Add target variable to the beginning of the DataFrame
+    df.insert(0, 'Target', y)
+
+    # Step 1: Check for missing values in percentage for each column
+    missing_values_percentage = df.isna().mean() * 100
+    print("Missing Values Percentage per Feature:")
+    print(missing_values_percentage)
+
+    # Step 2: Plot histograms for the first 15 features
+    num_features = min(15, len(headers))  
+    df.iloc[:, :num_features].hist(bins=30, figsize=(15, 10), edgecolor='black')
+    plt.suptitle("Histograms of the First 15 Features", fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.show()
+
+    # Step 3: Correlation heatmap to visualize relationships between the first 15 features and target
+    plt.figure(figsize=(12, 8))
+    corr_matrix = df.iloc[:, :num_features + 1].corr()  # Include target variable in correlation matrix
+    sns.heatmap(corr_matrix, annot=True, cmap='viridis', linewidths=0.5)
+    plt.title("Correlation Heatmap of the First 15 Features and Target", fontsize=16)
+    plt.show()
 
 def prediction(w0, w1, mean_x, std_x):
     """Get the regression line from the model."""

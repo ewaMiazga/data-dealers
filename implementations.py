@@ -1,5 +1,62 @@
 import numpy as np 
+from collections import Counter
 
+################### DROP FEATURES FUNCTION ###################
+def drop_features(headers, data, constant_threshold=0.9, missing_threshold=0.9, correlation_threshold=0.95): 
+    # Step 1: Identify columns to keep based on missing values and low variability
+    columns_to_keep = []
+
+    for i in range(data.shape[1]):
+        # Calculate the percentage of missing values
+        nan_ratio = np.isnan(data[:, i]).sum() / data.shape[0]
+
+        # If more than `missing_threshold` of the column is NaN, consider it mostly missing and drop it
+        if nan_ratio > missing_threshold:
+            continue
+
+        # Remove NaN values
+        non_nan_values = data[:, i][~np.isnan(data[:, i])]
+        unique_values = np.unique(non_nan_values)
+
+        # Check if column has more than one unique value
+        if len(unique_values) > 1:
+            # Calculate the frequency of the most common value
+            value_counts = Counter(non_nan_values)
+            most_common_value, most_common_count = value_counts.most_common(1)[0]
+            ratio = most_common_count / len(non_nan_values)
+
+            # Keep column if it is not 90% constant
+            if ratio < constant_threshold:
+                columns_to_keep.append(i)
+
+    # Step 2: Filter data and headers based on the identified columns to keep
+    filtered_data = data[:, columns_to_keep]
+    filtered_headers = [headers[i] for i in columns_to_keep]
+
+    # Step 3: Drop highly correlated features (more than 95% correlation)
+    corr_matrix = np.corrcoef(filtered_data, rowvar=False)
+    corr_matrix = np.abs(corr_matrix)  # Take the absolute value of correlations
+
+    # Create a boolean mask to identify highly correlated columns in the upper triangle
+    num_features = corr_matrix.shape[0]
+    correlated_features = set()
+
+    for i in range(num_features):
+        for j in range(i + 1, num_features):
+            if corr_matrix[i, j] > correlation_threshold:
+                correlated_features.add(j)
+
+    # Get the indices of the columns to keep
+    final_columns_to_keep = [i for i in range(num_features) if i not in correlated_features]
+
+    # Filter data and headers based on the correlation threshold
+    final_data = filtered_data[:, final_columns_to_keep]
+    final_headers = [filtered_headers[i] for i in final_columns_to_keep]
+
+    # Print number of dropped columns
+    print(f"Dropped {data.shape[1] - len(final_headers)} columns that were either mostly missing, had low variability, or were highly correlated (>95%).")
+    
+    return final_headers, final_data, final_columns_to_keep
 
 ################### STANDARDIZE FUNCTION ###################
 def standardize(x):
@@ -213,14 +270,91 @@ def ridge_regression(y, tx, lambda_):
     b = tx.T.dot(y)
     return np.linalg.solve(a, b)
 
-def logistic_regression(y, tx, initial_w, max_iters, gamma): 
-    # ***************************************************
-    # TODO: Solene implementation of logistic regression
-    # ***************************************************
-    raise NotImplementedError
+def sigmoid(t):
+    """apply sigmoid function on t."""
+    return 1.0 / (1 + np.exp(-t))
+
+def calculate_loss(y, tx, w):
+    """compute the cost by negative log likelihood."""
+    pred = sigmoid(tx.dot(w))
+    loss = -np.mean(y * np.log(pred) + (1 - y) * np.log(1 - pred))
+    return loss
+
+def calculate_gradient(y, tx, w):
+    """compute the gradient of loss."""
+    pred = sigmoid(tx.dot(w))
+    grad = tx.T.dot(pred - y)/len(y)
+    return grad
+
+def learning_by_gradient_descent(y, tx, w, gamma):
+    """Do one step of gradient descent using logistic regression. Return the loss and the updated w."""
+    # Compute the gradient
+    gradient = calculate_gradient(y, tx, w)
     
-def reg_logistic_regression(y, tx, lambda_ ,initial_w, max_iters, gamma):
-    # ***************************************************
-    # TODO: Solene implementation of regularized logistic regression
-    # ***************************************************
-    raise NotImplementedError
+    # Update the weights
+    w = w - gamma * gradient
+    
+    # Compute the loss with the updated weights
+    loss = calculate_loss(y, tx, w)
+    
+    return loss, w
+
+
+def logistic_regression(y, tx, initial_w, max_iters, gamma):
+    """Perform logistic regression using gradient descent."""
+    w = initial_w
+    for iter in range(max_iters):
+        loss, w = learning_by_gradient_descent(y, tx, w, gamma)
+        if iter % 100 == 0: 
+            print(f"Iteration {iter}/{max_iters}, loss={loss}")
+    
+    return w, loss
+    
+def penalized_logistic_regression(y, tx, w, lambda_):
+    """
+    Compute the loss and gradient for penalized logistic regression.
+    Includes an L2 regularization term.
+    """
+    # Compute the loss with the regularization term
+    loss = calculate_loss(y, tx, w) + (lambda_ / 2) * np.sum(w**2)
+    
+    # Compute the gradient with the regularization term
+    gradient = calculate_gradient(y, tx, w) + lambda_ * w
+    
+    return loss, gradient
+
+def learning_by_penalized_gradient(y, tx, w, gamma, lambda_):
+    """
+    Perform one step of gradient descent using penalized logistic regression.
+    Return the loss and updated w.
+    """
+    # Compute the loss and gradient
+    loss, gradient = penalized_logistic_regression(y, tx, w, lambda_)
+    
+    # Update the weights
+    w -= gamma * gradient
+    
+    return loss, w
+
+def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
+    """
+    Perform regularized logistic regression using gradient descent.
+    Args:
+        y: shape=(N, 1)
+        tx: shape=(N, D)
+        lambda_: scalar (regularization parameter)
+        initial_w: shape=(D, 1) (initial weight vector)
+        max_iters: int (number of iterations)
+        gamma: scalar (learning rate)
+
+    Returns:
+        w: Final weights after training
+        loss: Final loss value
+    """
+    w = initial_w
+    for iter in range(max_iters):
+        loss, w = learning_by_penalized_gradient(y, tx, w, gamma, lambda_)
+        if iter % 100 == 0:
+            print(f"Iteration {iter}/{max_iters}, loss={loss}")
+
+    return w, loss
